@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Phonics">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2a5bd7">
+<title>Phonics Practice</title>
+<style>
+:root{--bg:#faf8f3;--card:#fff;--tx:#111;--bd:#ddd;--red:#d62828;--ac:#2a5bd7;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17181b;--card:#25262b;--tx:#f2f2f2;--bd:#3a3b41;--red:#ff6b6b;--ac:#7aa2ff}}
+:root[data-theme="dark"]{--bg:#17181b;--card:#25262b;--tx:#f2f2f2;--bd:#3a3b41;--red:#ff6b6b;--ac:#7aa2ff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Arial,Helvetica,sans-serif;font-size:30px}
+.wrap{max-width:640px;margin:0 auto;padding:16px}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.tabs button{font:inherit;font-size:16px;padding:8px 14px;border:1px solid var(--bd);border-radius:20px;background:var(--card);color:var(--tx);cursor:pointer}
+.tabs button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.hint{font-size:15px;opacity:.7;margin:0 0 12px}
+.list{display:grid;gap:10px}
+.w{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 20px;font-family:Arial,sans-serif;font-size:30px;letter-spacing:1px}
+.r{color:var(--red);font-weight:bold}
+.syl{text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:2px;margin-right:8px}
+.syl:last-child{margin-right:0}
+#next{margin-top:18px;width:100%;font:inherit;font-size:22px;padding:14px;border:0;border-radius:12px;background:var(--ac);color:#fff;cursor:pointer}
+</style></head><body><div class="wrap">
+<div class="tabs" id="tabs"></div>
+<p class="hint" id="hint"></p>
+<div class="list" id="list"></div>
+<button id="next">Next Group ▶</button>
+</div>
+<script>
+// [ ] = red part, | = syllable break
+const D={
+short:{a:["c[a]t","m[a]p","h[a]t","b[a]g","s[a]d","p[a]n","j[a]m","t[a]p","v[a]n","d[a]d"],
+e:["b[e]d","p[e]n","r[e]d","n[e]t","l[e]g","w[e]b","h[e]n","t[e]n","j[e]t","w[e]t"],
+i:["p[i]g","s[i]t","b[i]n","l[i]p","h[i]t","p[i]n","b[i]g","s[i]x","d[i]g","k[i]d"],
+o:["d[o]g","h[o]t","p[o]t","m[o]p","b[o]x","t[o]p","f[o]x","l[o]g","j[o]b","n[o]d"],
+u:["b[u]s","c[u]p","s[u]n","m[u]d","b[u]g","r[u]n","n[u]t","h[u]g","g[u]m","t[u]b"]},
+long:{a:["c[a]ke","n[a]me","g[a]me","l[a]ke","g[a]te","m[a]ke","t[a]pe","f[a]ce"],
+e:["th[e]se","th[e]me","[e]ve","g[e]ne","P[e]te"],
+i:["b[i]ke","f[i]ve","k[i]te","n[i]ne","t[i]me","l[i]ke","h[i]de","l[i]ne"],
+o:["b[o]ne","h[o]me","n[o]se","r[o]pe","n[o]te","st[o]ne","h[o]le","c[o]de"],
+u:["c[u]be","t[u]be","h[u]ge","m[u]le","c[u]te","J[u]ne","r[u]le","fl[u]te"]},
+dip:["c[oi]n","b[oi]l","[oi]l","s[oi]l","t[oy]","b[oy]","[ou]t","h[ou]se","cl[ou]d","m[ou]se","c[ow]","n[ow]","d[ow]n","t[ow]n","br[ow]n","s[aw]","p[aw]","dr[aw]","m[oo]n","b[oo]k","f[oo]d","r[ai]n","tr[ai]n","t[ai]l","d[ay]","pl[ay]","s[ay]","tr[ee]","f[ee]t","t[ea]m","b[oa]t","c[oa]t","r[oa]d","n[ew]","gl[ue]"],
+dig:["[sh]ip","[sh]op","fi[sh]","[sh]ell","[ch]ip","[ch]air","lun[ch]","mu[ch]","[th]in","[th]is","ba[th]","[th]ink","[wh]ale","[wh]en","du[ck]","ba[ck]","so[ck]","ri[ng]","so[ng]","ki[ng]","[ph]one","[kn]ee","[kn]ife","[wr]ite"],
+two:["ta|ble","rab|bit","pen|cil","ba|by","ti|ger","mon|key","flow|er","ap|ple","or|ange","sun|set","to|day","hap|py","pic|nic","win|dow","but|ter","sis|ter","yel|low","pa|per","ba|con","lem|on","car|rot","ro|bot","mu|sic","ta|ble","gar|den","rain|bow"]};
+const T=[["short","Short Vowel 短元音","CVC：红色=元音字母"],["long","Long Vowel 长元音","VCe（silent e）：红色=元音字母"],["dip","Diphthong 复合元音","红色=复合元音"],["dig","Digraph 复合辅音","红色=digraph"],["two","2 Syllables 双音节","下划线=音节"]];
+let cur="short";
+const pick=(a,n)=>[...a].sort(()=>Math.random()-.5).slice(0,n);
+const one=o=>Object.values(o).map(a=>a[Math.floor(Math.random()*a.length)]);
+function html(w){
+  if(w.includes("|"))return w.split("|").map(s=>`<span class="syl">${s}</span>`).join("");
+  return w.split(/(\[.*?\])/).map(p=>p[0]==="["?`<span class="r">${p.slice(1,-1)}</span>`:p).join("");
+}
+function render(){
+  const words=cur==="short"||cur==="long"?one(D[cur]):pick(D[cur],5);
+  list.innerHTML=words.map(w=>`<div class="w">${html(w)}</div>`).join("");
+}
+function tabs(){
+  document.getElementById("tabs").innerHTML=T.map(t=>`<button class="${t[0]===cur?"on":""}" data-k="${t[0]}">${t[1]}</button>`).join("");
+  hint.textContent=T.find(t=>t[0]===cur)[2];
+}
+document.getElementById("tabs").onclick=e=>{const k=e.target.dataset.k;if(k){cur=k;tabs();render();}};
+next.onclick=render;
+tabs();render();
+if("serviceWorker"in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}
+</script></body></html>
