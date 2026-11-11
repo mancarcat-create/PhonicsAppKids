@@ -104,7 +104,7 @@ function touch(){
   if(!user||tab!=="practice")return;
   const n=Date.now();
   if(ses&&n-last>IDLE){save();ses=null}
-  if(!ses){ses={u:user,s:n,e:n};sessions.push(ses);const u=users.find(x=>x.name===user);if(u)u.last=n;save();lastSave=n}
+  if(!ses){ses={u:user,s:n,e:n,i:rid(),x:0};sessions.push(ses);const u=users.find(x=>x.name===user);if(u)u.last=n;save();lastSave=n}
   else{ses.e=n;if(n-lastSave>5000){save();lastSave=n}}
   last=n;
 }
@@ -112,6 +112,30 @@ function touch(){
 setInterval(()=>{if(ses&&Date.now()-last>IDLE){save();ses=null}},10000);
 document.addEventListener("visibilitychange",()=>{if(document.hidden)save()});
 addEventListener("pagehide",save);
+/* ===== v2.0 cloud sync (Google Sheets) ===== */
+const API="https://script.google.com/macros/s/AKfycbw5YFc6TXo-V1QApzvl1bRKTXEjQyPQtGfkqqnGyUvyfXyKf5aUNJ942kAHgS4-yDHgmg/exec",TOKEN="kids-phonics-7392";
+let dev=S.get("pa_dev",null);if(!dev){dev="dev-"+Math.random().toString(36).slice(2,6);S.set("pa_dev",dev)}
+function rid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+sessions.forEach(x=>{if(!x.i){x.i=rid();x.x=0}});
+let syncing=false,syncAt=0,syncErr="";
+const pend=()=>sessions.filter(x=>x.x!==x.e&&x.e-x.s>=5000);
+async function sync(){
+  if(syncing||!navigator.onLine)return;
+  const batch=pend().slice(0,50);if(!batch.length)return;
+  syncing=true;
+  const snap=batch.map(x=>[x,x.e]);
+  try{
+    const r=await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({token:TOKEN,sessions:batch.map(x=>({id:x.i,user:x.u,start:x.s,end:x.e,device:dev}))})});
+    const j=await r.json();
+    if(j.ok){snap.forEach(([x,e])=>{x.x=e});syncAt=Date.now();syncErr="";save()}else syncErr=j.error||"error";
+  }catch(err){syncErr="network"}
+  syncing=false;
+}
+setInterval(sync,20000);
+addEventListener("online",sync);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)sync()});
+sync();
 function drawLogin(){
   const r=[...users].sort((a,b)=>b.last-a.last).slice(0,5);
   rc.innerHTML=r.map(u=>`<button class="chip" data-n="${esc(u.name)}">${esc(u.name)}</button>`).join("")||'<p class="hint">No users yet 还没有记录</p>';
@@ -127,7 +151,7 @@ function doLogin(name){
   let u=users.find(x=>x.name.toLowerCase()===name.toLowerCase());
   if(!u){u={name,last:0};users.push(u)}
   u.last=Date.now();user=u.name;ses=null;su=user;save();
-  who.textContent="👤 "+user;show("app");setTab("practice");
+  sync();who.textContent="👤 "+user;show("app");setTab("practice");
 }
 function drawStats(){
   if(!users.length){sv.innerHTML="<p>No data yet 暂无记录</p>";return}
@@ -142,10 +166,11 @@ function drawStats(){
 <h3>Recent sessions 最近记录</h3><table><tr><th>Date</th><th>Time</th><th>Duration</th></tr>${log||"<tr><td colspan=3>–</td></tr>"}</table>
 <h3>All students 所有学生</h3><table><tr><th>Name</th><th>Today</th><th>Week</th><th>Last used</th></tr>${all}</table>
 <p class="hint">Records are saved on this device/browser only. 记录只保存在本设备。</p>
+<p class="hint">Cloud sync 云端同步: ${pend().length} pending 待上传 · last ${syncAt?ft(syncAt):"–"} ${syncErr?"· ⚠ "+syncErr:""} <button id="syn">Sync now</button></p>
 <button id="clr">Clear all records 清除所有记录</button>`;
 }
 sv.addEventListener("change",e=>{if(e.target.id==="su"){su=e.target.value;drawStats()}});
-sv.addEventListener("click",e=>{if(e.target.id==="clr"&&confirm("Delete ALL records? 确定删除所有记录？")){users=[];sessions=[];ses=null;save();su=null;drawStats()}});
+sv.addEventListener("click",e=>{if(e.target.id==="syn"){sync().then(drawStats);return}if(e.target.id==="clr"&&confirm("Delete ALL records? 确定删除所有记录？")){users=[];sessions=[];ses=null;save();su=null;drawStats()}});
 rc.addEventListener("click",e=>{const n=e.target.dataset.n;if(n)doLogin(n)});
 go.onclick=()=>doLogin(nm.value);
 nm.addEventListener("keydown",e=>{if(e.key==="Enter")doLogin(nm.value)});
